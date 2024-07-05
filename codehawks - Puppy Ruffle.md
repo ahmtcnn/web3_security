@@ -53,7 +53,7 @@ This project is to enter a raffle to win a cute dog NFT. The protocol should do 
 
 - When a user call the refund function, the contract sends the enterance fee to user. After that line, it updates the player index to zero so that the user cannot refund again. Before it updates the addres of player to zero, the player can request the same function and refund again. Like a race condition issue on web2.
 
-````solidity
+```solidity
 function refund(uint256 playerIndex) public {
         address playerAddress = players[playerIndex];
         require(playerAddress == msg.sender, "PuppyRaffle: Only the player can refund");
@@ -114,4 +114,34 @@ function selectWinner() external {
         require(success, "PuppyRaffle: Failed to send prize pool to winner");
         _safeMint(winner, tokenId);
     }
-    ```
+```
+
+
+## 3. Loop usage - Gas exceed
+
+
+- Nested Loop Problem: The function uses a nested loop to check for duplicates within the players array. This process has a time complexity of O(n^2), where n is the number of players. As more players join, the number of comparisons increases quadratically, consuming more gas.
+
+- As the number of participants increases, the gas required for the enterRaffle function also increases significantly. If the number of participants becomes large enough, the gas required to execute the function could exceed the block gas limit, causing the transaction to fail consistently.
+
+
+```solidity
+function enterRaffle(address[] memory newPlayers) public payable {
+        require(msg.value == entranceFee * newPlayers.length, "PuppyRaffle: Must send enough to enter raffle");
+        for (uint256 i = 0; i < newPlayers.length; i++) {
+            players.push(newPlayers[i]);
+        }
+
+        // Check for duplicates
+        for (uint256 i = 0; i < players.length - 1; i++) {
+            for (uint256 j = i + 1; j < players.length; j++) {
+                require(players[i] != players[j], "PuppyRaffle: Duplicate player");
+            }
+        }
+        emit RaffleEnter(newPlayers);
+    }
+```
+
+### Recommendation
+
+Use of mapping or EnumerableMap: Instead of an array, a mapping could be used to store player entries. Mappings in Solidity provide a more gas-efficient way of ensuring no duplicates, as each address can be mapped to a boolean (or another value) indicating whether it is already in the raffle.
